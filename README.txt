@@ -1,0 +1,1 @@
+Enable Debug output inside the include/config.h file.

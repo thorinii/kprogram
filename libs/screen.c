@@ -1,0 +1,189 @@
+#include <system.h>
+#include <screen.h>
+
+unsigned short *textmemptr;
+int attrib = 0x0F;
+int csr_x = 0, csr_y = 0;
+int bold = FALSE;
+
+void scroll(void)
+{
+  unsigned blank, temp;
+  
+  /* A blank is defined as a space... we need to give it
+  *  backcolor too */
+  blank = 0x20 | (attrib << 8);
+  
+  /* Row 25 is the end, this means we need to scroll up */
+  if(csr_y >= 25)
+  {
+    /* Move the current text chunk that makes up the screen
+    *  back in the buffer by a line */
+    temp = csr_y - 25 + 1;
+    memcpy (textmemptr, textmemptr + temp * 80, (25 - temp) * 80 * 2);
+    
+    /* Finally, we set the chunk of memory that occupies
+    *  the last line of text to our 'blank' character */
+    memsetw (textmemptr + (25 - temp) * 80, blank, 80);
+    csr_y = 25 - 1;
+  }
+}
+
+/* Updates the hardware cursor: the little blinking line
+*  on the screen under the last character pressed! */
+void move_csr(void)
+{
+  unsigned temp;
+  
+  /* The equation for finding the index in a linear
+  *  chunk of memory can be represented by:
+  *  Index = [(y * width) + x] */
+  temp = csr_y * 80 + csr_x;
+  
+  /* This sends a command to indicies 14 and 15 in the
+  *  CRT Control Register of the VGA controller. These
+  *  are the high and low bytes of the index that show
+  *  where the hardware cursor is to be 'blinking'. To
+  *  learn more, you should look up some VGA specific
+  *  programming documents.
+  unsigned short *textmemptr;
+  int attrib = 0x0F;
+  int csr_x = 0, csr_y = 0; A great start to graphics:
+  *  http://www.brackeen.com/home/vga */
+  outportb(0x3D4, 14);
+  outportb(0x3D5, temp >> 8);
+  outportb(0x3D4, 15);
+  outportb(0x3D5, temp);
+}
+
+/* Clears the screen */
+void cls()
+{
+  unsigned blank;
+  int i;
+  
+  /* Again, we need the 'short' that will be used to
+  *  represent a space with color */
+  blank = 0x20 | (attrib << 8);
+  
+  /* Sets the entire screen to spaces in our current
+  *  color */
+  for(i = 0; i < 25; i++)
+    memsetw (textmemptr + i * 80, blank, 80);
+  
+  /* Update out virtual cursor, and then move the
+  *  hardware cursor */
+  csr_x = 0;
+  csr_y = 0;
+  move_csr();
+}
+
+
+void puts(char *s){
+  int i;
+  
+  for (i = 0; i < strlen(s); i++)
+  {
+    putch(s[i]);
+  }
+}
+
+void putch(char c){
+  unsigned short *where;
+  unsigned att = attrib << 8;
+  
+  /* Handle a backspace, by moving the cursor back one space */
+  if(c == '\b')
+  {
+    if(csr_x != 0) csr_x--;
+    where = textmemptr + (csr_y * 80 + csr_x);
+    *where = ' ' | att;	/* Character AND attributes: color */
+  }
+  /* Handles a tab by incrementing the cursor's x, but only
+  *  to a point that will make it divisible by 8 */
+  else if(c == '\t')
+  {
+    csr_x = (csr_x + 8) & ~(8 - 1);
+  }
+  /* Handles a 'Carriage Return', which simply brings the
+  *  cursor back to the margin */
+  else if(c == '\r')
+  {
+    csr_x = 0;
+  }
+  /* We handle our newlines the way DOS and the BIOS do: we
+  *  treat it as if a 'CR' was also there, so we bring the
+  *  cursor to the margin and we increment the 'y' value */
+  else if(c == '\n')
+  {
+    csr_x = 0;
+    csr_y++;
+  }
+  /* Any character greater than and including a space, is a
+  *  printable character. The equation for finding the index
+  *  in a linear chunk of memory can be represented by:
+  *  Index = [(y * width) + x] */
+  else if(c >= ' ')
+  {
+    where = textmemptr + (csr_y * 80 + csr_x);
+    *where = c | att;	/* Character AND attributes: color */
+    csr_x++;
+  }
+  
+  /* If the cursor has reached the edge of the screen's width, we
+  *  insert a new line in there */
+  if(csr_x >= 80)
+  {
+    csr_x = 0;
+    csr_y++;
+  }
+  
+  /* Scroll the screen if needed, and finally move the cursor */
+  scroll();
+  move_csr();
+}
+
+void putch_loc(char c, int x, int y){
+  if(x <= SCREEN_X_MAX && y <= SCREEN_Y_MAX){
+//    int prev_x = csr_x, prev_y = csr_y;
+//    csr_x = x;
+//    csr_y = y;
+    unsigned short *where;
+    where = textmemptr + (y * 80 + x);
+    *where = c | (attrib << 8);	/* Character AND attributes: color */
+//    csr_x = prev_x;
+//    csr_y = prev_y;
+  }
+}
+
+void boldscr(){
+  if(!bold)
+    settextcolor(SCREEN_COLOR_WHITE, SCREEN_COLOR_BLACK);
+  else
+    settextcolor(SCREEN_COLOR_LIGHT_GREY, SCREEN_COLOR_BLACK);
+  bold = 1 - bold;
+}
+
+void errorscr(){
+  settextcolor(SCREEN_COLOR_RED, SCREEN_COLOR_BLACK);
+}
+
+void resetscr(){
+  settextcolor(SCREEN_COLOR_LIGHT_GREY, SCREEN_COLOR_BLACK);
+}
+
+/* Sets the forecolor and backcolor that we will use */
+void settextcolor(unsigned char forecolor, unsigned char backcolor)
+{
+  /* Top 4 bytes are the background, bottom 4 bytes
+  *  are the foreground color */
+  attrib = (backcolor << 4) | (forecolor & 0x0F);
+}
+
+/* Sets our text-mode VGA pointer, then clears the screen for us */
+void init_video(void)
+{
+  textmemptr = (unsigned short *)0xB8000;
+  resetscr();
+  cls();
+}

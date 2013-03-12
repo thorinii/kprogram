@@ -1,0 +1,80 @@
+#ifndef _H_BOOT
+#define _H_BOOT
+
+#include <system.h>
+// Define GDT data
+
+/* Defines a GDT entry. We say packed, because it prevents the
+*  compiler from doing things that it thinks is best: Prevent
+*  compiler "optimization" by packing */
+struct gdt_entry
+{
+    unsigned short limit_low;
+    unsigned short base_low;
+    unsigned char base_middle;
+    unsigned char access;
+    unsigned char granularity;
+    unsigned char base_high;
+} DOPACKED;
+
+
+/* Special pointer which includes the limit: The max bytes
+*  taken up by the GDT, minus 1. Again, this NEEDS to be packed */
+struct gdt_ptr
+{
+    unsigned short limit;
+    unsigned int base;
+} DOPACKED;
+
+// Define IDT data
+
+/* Defines an IDT entry */
+struct idt_entry
+{
+    unsigned short base_lo;
+    unsigned short sel;        /* Our kernel segment goes here! */
+    unsigned char always0;     /* This will ALWAYS be set to 0! */
+    unsigned char flags;       /* Set using the above table! */
+    unsigned short base_hi;
+} DOPACKED;
+
+struct idt_ptr
+{
+    unsigned short limit;
+    unsigned int base;
+} DOPACKED;
+
+/* This defines what the stack looks like after an ISR was running */
+struct regs
+{
+    unsigned int gs, fs, es, ds;      /* pushed the segs last */
+    unsigned int edi, esi, ebp, esp, ebx, edx, ecx, eax;  /* pushed by 'pusha' */
+    unsigned int int_no, err_code;    /* our 'push byte #' and ecodes do this */
+    unsigned int eip, cs, eflags, useresp, ss;   /* pushed by the processor automatically */ 
+};
+
+
+
+// Define external references to startup routines
+
+extern void init_video(); // This is in screen.c
+
+extern void gdt_install(); // In gdt.c
+extern void gdt_flush();   // In gdt-asm.s
+extern void gdt_set_gate(int num, unsigned long base, unsigned long limit, unsigned char access, unsigned char gran); // In gdt.c
+
+extern void idt_install(); // In idt.c
+extern void idt_load(); // In idt-asm.s
+extern void idt_set_gate(unsigned char num, unsigned long base, unsigned short sel, unsigned char flags); // In idt.c
+
+extern void isrs_install();
+
+extern void irq_install_handler(int irq, void (*handler)(struct regs *));
+extern void irq_uninstall_handler(int irq);
+extern void irq_install();
+
+extern void keyboard_install();
+
+extern void timer_install();
+
+#endif

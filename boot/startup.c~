@@ -1,0 +1,53 @@
+#include <config.h>
+#include <boot.h>
+#include <screen.h>
+
+void custominterrupt(struct regs *r){
+  puts("CI");
+}
+
+void startup(void* mbd, unsigned int magic)
+{  
+  if ( magic != 0x2BADB002 )
+  {
+    return;
+  }
+  
+  init_video();
+  DEBUG("Initialized Video");
+  
+  #ifdef START_GDT
+  gdt_install();
+  DEBUG("Installed GDT");
+  #endif
+  
+  #ifdef START_IDT
+  idt_install();
+  DEBUG("Installed IDT");
+  #endif
+  
+  #ifdef START_ISRS
+  isrs_install();
+  DEBUG("Installed ISRS");
+  #endif
+  
+  #ifdef START_IRQS
+  irq_install();
+  DEBUG("Installed IRQS");
+  #endif
+  
+  #ifdef START_KEYBOARD
+  keyboard_install();
+  DEBUG("Installed Keyboard");
+  #endif
+  
+  #ifdef START_PIT
+  timer_install();
+  DEBUG("Installed PIT");
+  #endif
+  
+  irq_install_handler(8, custominterrupt);
+}
+
+void cleanup(){
+}

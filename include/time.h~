@@ -1,0 +1,9 @@
+#ifndef _H_TIME
+#define _H_TIME
+
+#define TIMER_HZ 100
+
+extern void sleep(int time);
+
+
+#endif

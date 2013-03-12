@@ -1,0 +1,6 @@
+menuentry "KProgram"{
+	insmod ntfs
+	root (hd0,2)
+	multiboot /kprogram.bin
+	boot
+}
