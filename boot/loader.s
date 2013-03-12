@@ -18,12 +18,12 @@
 
 loader:
    cli
-   mov   $(stack + STACKSIZE), %esp # set up the stack
-   push  %eax                       # Multiboot magic number
-   push  %ebx                       # Multiboot data structure
+   movl   $(stack + STACKSIZE), %esp # set up the stack
+   pushl  %eax                       # Multiboot magic number
+   pushl  %ebx                       # Multiboot data structure
    call  startup
-   pop %ebx
-   pop %eax
+   popl %ebx
+   popl %eax
 
    sti # Enable interrupts after Startup
 
